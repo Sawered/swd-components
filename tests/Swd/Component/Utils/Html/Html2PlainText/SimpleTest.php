@@ -31,7 +31,7 @@ class SimpleTest extends \PHPUnit_Framework_TestCase
     {
         $names = array(
             'simple',
-            //'fulltext',
+            'fulltext',
             'whitespace_inline',
             'block_newline',
             'whitespace_br',
