@@ -4,6 +4,8 @@ namespace Swd\Component\Utils\Html;
 
 use DOMDocument,DOMXPath,DOMNode;
 
+use function sprintf;
+
 /**
  * Зачистка HTML до состояния теста
  *
@@ -40,13 +42,28 @@ class Html2PlainText
 
     public function process($html)
     {
+        return $this->processDom($this->wrapHtml($html));
+    }
+
+    /**
+     * @param string $html
+     *
+     * @return DOMDocument
+     */
+    public function wrapHtml($html)
+    {
+        $dom = new DOMDocument('1.0', 'UTF-8');
+        $dom->preserveWhiteSpace = false;
+
+        /** @noinspection PhpUsageOfSilenceOperatorInspection */
+        @$dom->loadHTML(sprintf($this->template, $html));
+
+        return $dom;
+    }
+
+    public function processDom(\DOMDocument $doc)
+    {
         $result = '';
-        $html = sprintf($this->template,$html);
-
-        $doc =  new DOMDocument("1.0","UTF-8");
-        $doc->preserveWhiteSpace = false;
-
-        @$doc->loadHTML($html);
         $doc->normalizeDocument();
         $xpath = new DOMXPath($doc);
         $roots = $xpath->query("/html/body");

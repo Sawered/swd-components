@@ -8,5 +8,9 @@
             "Swd\\Json": "src/",
             "Swd\\Component": "src/"
         }
+    },
+    "require": {
+        "ext-libxml": "*",
+        "ext-dom": "*"
     }
 }
