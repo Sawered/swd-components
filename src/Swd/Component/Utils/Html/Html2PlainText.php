@@ -130,7 +130,7 @@ class Html2PlainText
                 $result .= "\n";
             }
 
-            if($node->nodeName === 'td' && $node !== $node->parentNode->firstChild) {
+            if(in_array($node->nodeName, ['th','td']) && $node !== $node->parentNode->firstChild) {
                 $result .= " ";
             }
 
