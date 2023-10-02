@@ -2,7 +2,7 @@
 
 namespace Swd\Component\Utils\Html;
 
-use DOMDocument,DOMXPath,DOMNode;
+use DOMDocument, DOMXPath, DOMNode;
 
 use function sprintf;
 
@@ -24,7 +24,8 @@ class Html2PlainText
      * @var array
      **/
     protected $ignoreTags = array(
-        "form","meta",
+        "form",
+        "meta",
     );
 
     protected $options;
@@ -36,11 +37,21 @@ class Html2PlainText
             'ignore_newline' => false,
             'depth_limit' => 20,
             'tags_limit' => 1000,
-            'block_tags' => ['tr','br','div','p','ol','ul','h1','h2','h3','h4','h5'],
-        ],$options);
+            'block_tags' => ['tr', 'br', 'div', 'p', 'ol', 'ul', 'h1', 'h2', 'h3', 'h4', 'h5'],
+        ], $options);
     }
 
-    public function process($html)
+    /**
+     * Вернет строковое представление (видимый контент) для html
+     *
+     * Особая опасность может быть в экранированном тексте, xss фильтрация должна проходить
+     * ДО очистки от тегов иначе "&lt;" превратится в "<" и c entities также "&#128540;" => "😜"
+     *
+     *
+     * @param string $html
+     * @return string
+     */
+    public function process(string $html): string
     {
         return $this->processDom($this->wrapHtml($html));
     }
@@ -50,7 +61,7 @@ class Html2PlainText
      *
      * @return DOMDocument
      */
-    public function wrapHtml($html)
+    public function wrapHtml(string $html)
     {
         $dom = new DOMDocument('1.0', 'UTF-8');
         $dom->preserveWhiteSpace = false;
@@ -61,13 +72,17 @@ class Html2PlainText
         return $dom;
     }
 
-    public function processDom(\DOMDocument $doc)
+    /**
+     * @param DOMDocument $doc
+     * @return string
+     */
+    public function processDom(\DOMDocument $doc): string
     {
         $result = '';
         $doc->normalizeDocument();
         $xpath = new DOMXPath($doc);
         $roots = $xpath->query("/html/body");
-        $root = ($roots->item($roots->length -1));
+        $root = ($roots->item($roots->length - 1));
 
         $nodesList = $root->childNodes;
         $listPos = 0;
@@ -76,70 +91,70 @@ class Html2PlainText
 
         $stack = [];
 
-        $tLimit  = $this->options['tags_limit'];
-        $sLimit  = $this->options['depth_limit'];
+        $tLimit = $this->options['tags_limit'];
+        $sLimit = $this->options['depth_limit'];
 
         $i = 0;
         $lastText = false;
-        while($listPos < $listLen){
+        while ($listPos < $listLen) {
             $i++;
-            //var_dump($i);
-            if($tLimit !==false && ($i >= $tLimit)){
+
+            if ($tLimit !== false && ($i >= $tLimit)) {
                 break;
             }
 
+            /** @var DOMNode $node */
             $node = $nodesList->item($listPos);
             $listPos++;
             $closeBlock = false;
-            if($listPos >= $listLen && !empty($stack)){
-                list($nodesList,$listPos,$listLen,$closeBlock) = array_pop($stack);
+            if ($listPos >= $listLen && !empty($stack)) {
+                list($nodesList, $listPos, $listLen, $closeBlock) = array_pop($stack);
                 $lastText = false;
             }
 
 
-            if($node->nodeType == XML_TEXT_NODE){
+            if ($node->nodeType == XML_TEXT_NODE) {
                 $node->normalize();
                 $text = $node->nodeValue;
 
                 $textTest = trim($text);
-                if(!empty($textTest)){
-                    if($this->options['merge_whitespace']){
+                if (!empty($textTest)) {
+                    if ($this->options['merge_whitespace']) {
                         $text = $this->mergeWhiteSpace($text);
                     }
-                    if($this->options['ignore_newline']){
-                        $text = str_replace("\n",' ',$text);
+                    if ($this->options['ignore_newline']) {
+                        $text = str_replace("\n", ' ', $text);
                     }
-                    if(!$lastText){
+                    if (!$lastText) {
                         $text = ltrim($text);
                     }
-                    //var_dump($text);
                     $lastText = true;
-                    $result .=  $text;
+                    $result .= $text;
                 }
-
-
-            }elseif($node->nodeName == 'br'){
-                //var_dump('br');
-                $result .="\n";
-                $lastText = false;
-
+            } elseif ($node->nodeType === XML_ELEMENT_NODE) {
+                if ($node->nodeName == 'br') {
+                    $result .= "\n";
+                    $lastText = false;
+                }
             }
 
-            $blockTag = in_array($node->nodeName,$this->options['block_tags']);
-            if($blockTag && ($lastText || in_array($node->nodeName, ['tr']))){
+
+            $blockTag = in_array($node->nodeName, $this->options['block_tags']);
+            if ($blockTag && ($lastText || in_array($node->nodeName, ['tr']))) {
                 $result .= "\n";
             }
 
-            if(in_array($node->nodeName, ['th','td']) && $node !== $node->parentNode->firstChild) {
+            if (in_array($node->nodeName, ['th', 'td']) && $node !== $node->parentNode->firstChild) {
                 $result .= " ";
             }
 
-            if($node->hasChildNodes() ){
-                if($sLimit !==false &&(count($stack)>=$sLimit)){
+
+            if ($node->hasChildNodes()) {
+                if ($sLimit !== false && (count($stack) >= $sLimit)) {
                     break;
                 }
-                //$this->extractNodes($node,$nodes,true);
-                array_push($stack,[$nodesList,$listPos,$listLen,$blockTag]);
+
+                array_push($stack, [$nodesList, $listPos, $listLen, $blockTag]);
 
                 $lastText = false;
                 $listPos = 0;
@@ -147,44 +162,41 @@ class Html2PlainText
                 $nodesList = $node->childNodes;
             }
 
-            if($closeBlock && $lastText){
+            if ($closeBlock && $lastText) {
                 $result .= "\n";
                 $lastText = false;
             }
-
         }
 
         return rtrim($result);
     }
 
-    public function extractNodes(DOMNode $root,array &$ar,$inBeginning = false)
+    public function extractNodes(DOMNode $root, array &$ar, $inBeginning = false)
     {
-        if($root->childNodes->length <= 0 ){
+        if ($root->childNodes->length <= 0) {
             return;
         }
 
-        if($inBeginning){
+        if ($inBeginning) {
             $len = $root->childNodes->length;
             //add in reverse order
-            for ($i = ($len-1); $i >= 0;$i--){
+            for ($i = ($len - 1); $i >= 0; $i--) {
                 $node = $root->childNodes->item($i);
-                array_unshift($ar,$node);
-                //var_dump('added2 '.$node->nodeName.'#'.$node->nodeType);
+                array_unshift($ar, $node);
             }
-        }else{
-            foreach ($root->childNodes as $node){
-                //var_dump('added1 '.$node->nodeName.'#'.$node->nodeType);
-                array_push($ar,$node);
+        } else {
+            foreach ($root->childNodes as $node) {
+                array_push($ar, $node);
             }
         }
     }
 
     protected function getTextNodeValue($node)
     {
-
     }
+
     protected function mergeWhiteSpace($text)
     {
-        return preg_replace("/[[:space:]][[:space:]]{1,}/mu",' ',$text);
+        return preg_replace("/[[:space:]][[:space:]]{1,}/mu", ' ', $text);
     }
 }
